@@ -1442,7 +1442,193 @@ def delete_case_document(document_id):
         return jsonify({'message': str(e)}), 500
     finally:
         db.close()
+        
+#FinalDecision API
+@app.route('/api/cases/<int:case_id>/final-decision', methods=['POST'])
+@login_required
+# @log_action(action_type = "CREATE", entity_type = "FinalDecision")
+def add_final_decision(case_id):
+    db = SessionLocal()
+    try:
+        data = request.get_json()
+        decision_summary = data.get('decisionsummary')
+        verdict = data.get('verdict')
+        decision_date = data.get('decisiondate') or datetime.date.today()
 
+        if not decision_summary or not verdict:
+            return jsonify({'message': 'Decision summary and verdict are required'}), 400
+
+        # Check if the case exists
+        case = db.query(Cases).get(case_id)
+        if not case:
+            return jsonify({'message': 'Case not found'}), 404
+
+        # Add final decision
+        final_decision = Finaldecision(
+            caseid=case_id,
+            decisionsummary=decision_summary,
+            verdict=verdict,
+            decisiondate=decision_date
+        )
+        db.add(final_decision)
+        db.commit()
+
+        return jsonify({'message': 'Final decision added successfully', 'decision_id': final_decision.decisionid}), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
+        
+@app.route('/api/cases/<int:case_id>/final-decision', methods=['GET'])
+@login_required
+def get_final_decision(case_id):
+    db = SessionLocal()
+    try:
+        final_decision = db.query(Finaldecision).filter_by(caseid=case_id).first()
+        if not final_decision:
+            return jsonify({'message': 'Final decision not found'}), 404
+
+        return jsonify({
+            'decision_id': final_decision.decisionid,
+            'case_id': final_decision.caseid,
+            'decision_summary': final_decision.decisionsummary,
+            'verdict': final_decision.verdict,
+            'decision_date': final_decision.decisiondate.isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
+        
+@app.route('/api/final-decision/<int:decision_id>', methods=['PUT'])
+@login_required
+# @log_action(action_type = "UPDATE", entity_type = "FinalDecision")
+def update_final_decision(decision_id):
+    db = SessionLocal()
+    try:
+        data = request.get_json()
+        final_decision = db.query(Finaldecision).get(decision_id)
+
+        if not final_decision:
+            return jsonify({'message': 'Final decision not found'}), 404
+
+        final_decision.decisionsummary = data.get('decisionsummary', final_decision.decisionsummary)
+        final_decision.verdict = data.get('verdict', final_decision.verdict)
+        final_decision.decisiondate = data.get('decisiondate', final_decision.decisiondate)
+
+        db.commit()
+        return jsonify({'message': 'Final decision updated successfully'}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
+
+#Remand API
+@app.route('/api/cases/<int:case_id>/remands', methods=['POST'])
+@login_required
+# @log_action(action_type = "CREATE", entity_type = "Remands")
+def add_remand(case_id):
+    db = SessionLocal()
+    try:
+        data = request.get_json()
+        start_date = data.get('startdate')
+        end_date = data.get('enddate')
+        remand_type = data.get('remandtype')
+        remand_reason = data.get('remandreason')
+
+        if not start_date or not end_date or not remand_type:
+            return jsonify({'message': 'Start date, end date, and remand type are required'}), 400
+
+        # Check if the case exists
+        case = db.query(Cases).get(case_id)
+        if not case:
+            return jsonify({'message': 'Case not found'}), 404
+
+        # Add remand
+        new_remand = Remands(
+            caseid=case_id,
+            startdate=start_date,
+            enddate=end_date,
+            remandtype=remand_type,
+            remandreason=remand_reason
+        )
+        db.add(new_remand)
+        db.commit()
+
+        return jsonify({'message': 'Remand added successfully', 'remand_id': new_remand.remandid}), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/cases/<int:case_id>/remands', methods=['GET'])
+@login_required
+def get_remands_for_case(case_id):
+    db = SessionLocal()
+    try:
+        remands = db.query(Remands).filter_by(caseid=case_id).all()
+        result = [
+            {
+                'remand_id': r.remandid,
+                'start_date': r.startdate.isoformat(),
+                'end_date': r.enddate.isoformat(),
+                'remand_type': r.remandtype,
+                'remand_reason': r.remandreason
+            }
+            for r in remands
+        ]
+        return jsonify({'remands': result}), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/remands/<int:remand_id>', methods=['PUT'])
+@login_required
+# @log_action(action_type = "UPDATE", entity_type = "Remands")
+def update_remand(remand_id):
+    db = SessionLocal()
+    try:
+        data = request.get_json()
+        remand = db.query(Remands).get(remand_id)
+
+        if not remand:
+            return jsonify({'message': 'Remand not found'}), 404
+
+        remand.startdate = data.get('startdate', remand.startdate)
+        remand.enddate = data.get('enddate', remand.enddate)
+        remand.remandtype = data.get('remandtype', remand.remandtype)
+        remand.remandreason = data.get('remandreason', remand.remandreason)
+
+        db.commit()
+        return jsonify({'message': 'Remand updated successfully'}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/remands/<int:remand_id>', methods=['DELETE'])
+@login_required
+# @log_action(action_type = "DELETE", entity_type = "Remands")
+def delete_remand(remand_id):
+    db = SessionLocal()
+    try:
+        remand = db.query(Remands).get(remand_id)
+        if not remand:
+            return jsonify({'message': 'Remand not found'}), 404
+
+        db.delete(remand)
+        db.commit()
+        return jsonify({'message': 'Remand deleted successfully'}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({'message': str(e)}), 500
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     app.run(debug=True)
